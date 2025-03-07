@@ -7,7 +7,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 class GLATransformer(nn.Module):
-    def __init__(self, state_dim, action_dim, hidden_dim, n_layers, n_heads, max_seq_len, proj_dims):
+    def __init__(self, obs_emb_dim, action_emb_dim, hidden_dim, n_layers, n_heads, max_seq_len):
         """
         state_dim: 原始 state 維度
         action_dim: 連續動作的維度
@@ -18,19 +18,10 @@ class GLATransformer(nn.Module):
         proj_dims: 字典，包含 'obs' 與 'act' 的投影後維度
         """
         super(GLATransformer, self).__init__()
-        self.action_dim = action_dim
-        
-        # 隨機投影層 (data augmentation)；參數固定，不進行訓練
-        self.obs_proj = nn.Linear(state_dim, proj_dims['obs'], bias=False)
-        self.act_proj = nn.Linear(action_dim, proj_dims['act'], bias=False)
-        for param in self.obs_proj.parameters():
-            param.requires_grad = False
-        for param in self.act_proj.parameters():
-            param.requires_grad = False
 
         # 嵌入層
-        self.state_embed = nn.Linear(proj_dims['obs'], hidden_dim)
-        self.action_embed = nn.Linear(proj_dims['act'], hidden_dim)
+        self.state_embed = nn.Linear(obs_emb_dim, hidden_dim)
+        self.action_embed = nn.Linear(action_emb_dim, hidden_dim)
         self.reward_embed = nn.Linear(1, hidden_dim)
         # self.done_embed   = nn.Linear(1, hidden_dim)
 
@@ -42,7 +33,7 @@ class GLATransformer(nn.Module):
         self.transformer = nn.TransformerEncoder(encoder_layer, num_layers=n_layers)
 
         # 預測下一個時間步的動作
-        self.out_head = nn.Linear(hidden_dim, action_dim)
+        self.out_head = nn.Linear(hidden_dim, action_emb_dim)
 
     def forward(self, states, actions, rewards, next_states):
         """
@@ -52,14 +43,11 @@ class GLATransformer(nn.Module):
         dones: Tensor, shape (B, L)
         """
         batch_size, seq_len, _ = states.shape
-        states_proj = self.obs_proj(states)  # (B, L, proj_dims['obs'])
-        actions_proj = self.act_proj(actions)  # (B, L, proj_dims['act'])
-        next_states_proj = self.obs_proj(next_states)  # (B, L, proj_dims['obs'])
         # 嵌入層
-        state_tokens  = self.state_embed(states_proj)
-        action_tokens = self.action_embed(actions_proj)
+        state_tokens  = self.state_embed(states)
+        action_tokens = self.action_embed(actions)
         reward_tokens = self.reward_embed(rewards)
-        next_states_tokens = self.state_embed(next_states_proj)
+        next_states_tokens = self.state_embed(next_states)
         # done_tokens   = self.done_embed(dones.unsqueeze(-1))
 
         # 位置編碼

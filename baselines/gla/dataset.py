@@ -4,7 +4,13 @@ import torch
 from torch.utils.data import Dataset
 
 class TrajectoryDataset(Dataset):
-    def __init__(self, log_dir):
+    def __init__(self, log_dir, obs_dim, act_dim,
+                 obs_emb_dim, act_emb_dim):
+        
+        self.obs_dim = obs_dim
+        self.act_dim = act_dim
+        self.obs_emb_dim = obs_emb_dim
+        self.act_emb_dim = act_emb_dim
         
         total_obs_history = np.load(os.path.join(log_dir, 'obs.npy'))
         total_actions = np.load(os.path.join(log_dir, 'actions.npy'))
@@ -47,8 +53,13 @@ class TrajectoryDataset(Dataset):
         
         a_t1 = self.actions[1:]
 
-        state_projector = np.random.randn()
-        action_projector = np.random.randn()
+        state_projector = np.random.randn(self.obs_dim, self.obs_emb_dim)
+        action_projector = np.random.randn(self.act_dim, self.act_emb_dim)
+
+        s_t = np.tanh(np.dot(s_t, state_projector))
+        a_t = np.tanh(np.dot(a_t, action_projector))
+        s_t1 = np.tanh(np.dot(s_t1, state_projector))
+        a_t1 = np.tanh(np.dot(a_t1, action_projector))
 
         # print(s_t.shape, a_t.shape, r_t.shape, s_t1.shape, a_t1.shape)
 

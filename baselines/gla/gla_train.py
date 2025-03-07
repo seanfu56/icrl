@@ -16,7 +16,7 @@ def train_model(model, dataset, epochs=10, batch_size=16, lr=1e-4):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model.to(device)
 
-    dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
+    dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True, num_workers=4)
     optimizer = optim.Adam(model.parameters(), lr=lr)
     criterion = nn.MSELoss()  # 預設離散動作預測
 
@@ -53,16 +53,6 @@ def gla_main():
 
     env = gym.make(env_name)
 
-    # 收集真實軌跡資料 (例如 50 個 episode)
-    num_episodes = 50
-    # trajectories = data_collection(env, num_episodes)
-    # print(f"Collected {len(trajectories)} trajectories.")
-
-    # 設定每個序列長度 (例如 10)
-    log_dir = f'data/gla/{env_name}'
-    dataset = TrajectoryDataset(log_dir=log_dir)
-
-    # 模型參數 (依據 CartPole，state_dim=4，action_dim=env.action_space.n)
     state_dim = env.observation_space.shape[0]  # 4
     action_dim = env.action_space.shape[0]             # 2
     hidden_dim = 32
@@ -70,14 +60,23 @@ def gla_main():
     n_heads = 2
     seq_len = 110000
     proj_dims = {'obs': 16, 'act': 16}
+    # 設定每個序列長度 (例如 10)
+    log_dir = f'data/gla/{env_name}'
+    dataset = TrajectoryDataset(log_dir=log_dir,
+                                obs_dim=state_dim,
+                                act_dim=action_dim,
+                                obs_emb_dim=proj_dims['obs'],
+                                act_emb_dim=proj_dims['act'])
 
-    model = GLATransformer(state_dim, action_dim, hidden_dim, n_layers, n_heads, seq_len, proj_dims)
+    # 模型參數 (依據 CartPole，state_dim=4，action_dim=env.action_space.n)
+
+
+    model = GLATransformer(proj_dims['obs'], proj_dims['act'], hidden_dim, n_layers, n_heads, seq_len)
     total_params = sum(p.numel() for p in model.parameters())
     print(f"Total parameters: {total_params}")
     # 執行訓練 (Meta-Training)
     train_model(model, dataset, epochs=20, batch_size=16, lr=1e-4)
 
-    # 執行 meta-testing：模型利用 in-context RL 在環境中互動
-    print("Meta-testing:")
-    # meta_test(model, env, seq_len=seq_len, max_steps=50)
+    # 儲存模型
+    torch.save(model.state_dict(), f'data/gla/{env_name}/transformer.pt')
 
