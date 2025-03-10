@@ -43,7 +43,7 @@ class TrajectoryDataset(Dataset):
         self.rewards = gap_rewards
 
     def __len__(self):
-        return 100
+        return 16
 
     def __getitem__(self, idx):
         s_t = self.obs_history[:-1]

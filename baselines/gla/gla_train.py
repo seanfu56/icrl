@@ -6,12 +6,12 @@ import torch.nn.functional as F
 from torch.utils.data import Dataset, DataLoader
 import gymnasium as gym
 import numpy as np
-
+from tqdm import tqdm
 from baselines.gla.transformer import GLATransformer
 from baselines.gla.data_collection import data_collection
 from baselines.gla.dataset import TrajectoryDataset
 
-def train_model(model, dataset, epochs=10, batch_size=16, lr=1e-4):
+def train_model(model, dataset, epochs=10, batch_size=4, lr=1e-4):
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model.to(device)
@@ -23,7 +23,7 @@ def train_model(model, dataset, epochs=10, batch_size=16, lr=1e-4):
     print(len(dataloader))
 
     model.train()
-    for epoch in range(epochs):
+    for epoch in tqdm(range(epochs)):
         total_loss = 0.0
         for data, label in dataloader:
             optimizer.zero_grad()
@@ -56,8 +56,8 @@ def gla_main():
     state_dim = env.observation_space.shape[0]  # 4
     action_dim = env.action_space.shape[0]             # 2
     hidden_dim = 32
-    n_layers = 2
-    n_heads = 2
+    n_layers = 12
+    n_heads = 8
     seq_len = 110000
     proj_dims = {'obs': 16, 'act': 16}
     # 設定每個序列長度 (例如 10)
@@ -75,7 +75,7 @@ def gla_main():
     total_params = sum(p.numel() for p in model.parameters())
     print(f"Total parameters: {total_params}")
     # 執行訓練 (Meta-Training)
-    train_model(model, dataset, epochs=20, batch_size=16, lr=1e-4)
+    train_model(model, dataset, epochs=2000, batch_size=4, lr=1e-4)
 
     # 儲存模型
     torch.save(model.state_dict(), f'data/gla/{env_name}/transformer.pt')
